@@ -1,26 +1,37 @@
 <?php
 session_start();
-include "../config.php";
+include '../config.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST["username"];
-    $password = $_POST["password"];
+    $username = trim($_POST['username']);
+    $password = trim($_POST['password']);
 
-    // Ambil user dari database
-    $query = "SELECT * FROM user WHERE username = ?";
-    $stmt = $conn->prepare($query);
+    if (empty($username) || empty($password)) {
+        echo "Username dan password wajib diisi!";
+        exit();
+    }
+
+    // Ambil data user berdasarkan username
+    $stmt = $conn->prepare("SELECT id, username, password FROM user WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
+    $stmt->close();
 
-    // Cek password
-    if ($user && password_verify($password, $user["password"])) {
-        $_SESSION["username"] = $username;
+    // Cek apakah user ditemukan dan password cocok
+    if ($user && password_verify($password, $user['password'])) {
+        session_regenerate_id(true); // Amankan sesi
+
+        $_SESSION["user_id"] = $user["id"];
+        $_SESSION["username"] = $user["username"];
+
         header("Location: ../index.php");
         exit();
     } else {
-        echo "Username atau password salah!";
+        echo "<script>alert('Login gagal! Username atau password salah.'); window.location.href='login_page.php';</script>";
+        exit();
     }
 }
 ?>
+

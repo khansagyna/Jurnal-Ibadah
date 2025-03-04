@@ -1,41 +1,45 @@
 <?php
 session_start();
-if (!isset($_SESSION["username"])) {
+if (!isset($_SESSION["user_id"])) {
     header("Location: login/login_page.php");
     exit();
 }
 
 include 'config.php';
 
+// Ambil user_id dari session
+$user_id = $_SESSION["user_id"];
+
+// Query untuk mengambil hanya data user yang sedang login
+$query = "SELECT * FROM ibadah WHERE user_id = ? ORDER BY tanggal DESC";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$data = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $id = $_POST['id'] ?? null;
     $tanggal = $_POST['tanggal'];
     $sholat = $_POST['sholat'];
-    $puasa = !empty($_POST['puasa']) ? 1 : 0;
+    $puasa = isset($_POST['puasa']) ? 1 : 0;
     $sedekah = $_POST['sedekah'];
     $tadarus = $_POST['tadarus'];
 
-    // Cek apakah tanggal sudah ada di database
-    $stmt = $conn->prepare("SELECT * FROM ibadah WHERE tanggal = ?");
-    $stmt->bind_param("s", $tanggal);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $stmt->close();
-
-    if ($result->num_rows > 0) {
-        // Jika data sudah ada, update
-        $stmt = $conn->prepare("UPDATE ibadah SET sholat=?, puasa=?, sedekah=?, tadarus=? WHERE tanggal=?");
-        $stmt->bind_param("iiiss", $sholat, $puasa, $sedekah, $tadarus, $tanggal);
-        $stmt->execute();
-        $stmt->close();
+    if ($id) {
+        // Update data berdasarkan ID dan user_id
+        $stmt = $conn->prepare("UPDATE ibadah SET tanggal=?, sholat=?, puasa=?, sedekah=?, tadarus=? WHERE id=? AND user_id=?");
+        $stmt->bind_param("siiiiii", $tanggal, $sholat, $puasa, $sedekah, $tadarus, $id, $user_id);
     } else {
-        // Jika data belum ada, insert
-        $stmt = $conn->prepare("INSERT INTO ibadah (tanggal, sholat, puasa, sedekah, tadarus) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiii", $tanggal, $sholat, $puasa, $sedekah, $tadarus);
-        $stmt->execute();
-        $stmt->close();
+        // Insert data baru
+        $stmt = $conn->prepare("INSERT INTO ibadah (user_id, tanggal, sholat, puasa, sedekah, tadarus) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isiiii", $user_id, $tanggal, $sholat, $puasa, $sedekah, $tadarus);
     }
 
-    // Redirect ke halaman yang sama untuk mencegah duplicate submit
+    $stmt->execute();
+    $stmt->close();
+
     header("Location: index.php");
     exit();
 }
@@ -51,7 +55,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class=" bg-gray-100">
+<body style="background-color: #CAE0BC;">
+    
     <div class="utama">
         <div>
 <h3 class="slmt font-bold py-1">Selamat Datang, <?php echo $_SESSION['username']; ?>!</h3>
@@ -101,47 +106,55 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Tabel Riwayat Ibadah -->
     <div class="max-w-3xl mx-auto mt-2 bg-white p-6 rounded-lg shadow-md">
     <h2 class="text-xl font-bold text-gray-700 mb-4">Riwayat Ibadah</h2>
-    <table class="w-full border border-gray-300">
-        <tr class="bg-gray-200 text-center">
-            <th class="border p-2">Tanggal</th>
-            <th class="border p-2">Sholat</th>
-            <th class="border p-2">Puasa</th>
-            <th class="border p-2">Sedekah</th>
-            <th class="border p-2">Tadarus</th>
-            <th class="border p-2">Aksi</th>
+    <?php
+$query = "SELECT * FROM ibadah WHERE user_id = ? ORDER BY tanggal DESC";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$data = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+?>
+
+<table class="w-full border border-gray-300">
+    <tr class="bg-gray-200 text-center">
+        <th class="border p-2">Tanggal</th>
+        <th class="border p-2">Sholat</th>
+        <th class="border p-2">Puasa</th>
+        <th class="border p-2">Sedekah</th>
+        <th class="border p-2">Tadarus</th>
+        <th class="border p-2">Aksi</th>
+    </tr>
+    <?php foreach ($data as $row) { ?>
+        <tr class="text-center">
+            <td class="border p-2"><?= htmlspecialchars($row['tanggal']) ?></td>
+            <td class="border p-2"><?= htmlspecialchars($row['sholat']) ?>x</td>
+            <td class="border p-2"><?= $row['puasa'] ? "✅" : "❌" ?></td>
+            <td class="border p-2">Rp<?= number_format($row['sedekah']) ?></td>
+            <td class="border p-2"><?= htmlspecialchars($row['tadarus']) ?> halaman</td>
+            <td class="border p-2">
+                <div class="flex justify-center gap-2">
+                    <button class="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600 flex items-center justify-center"
+                        data-old-tanggal="<?= htmlspecialchars($row['tanggal']) ?>"
+                        data-tanggal="<?= htmlspecialchars($row['tanggal']) ?>"
+                        data-sholat="<?= htmlspecialchars($row['sholat']) ?>"
+                        data-puasa="<?= htmlspecialchars($row['puasa']) ?>"
+                        data-sedekah="<?= htmlspecialchars($row['sedekah']) ?>"
+                        data-tadarus="<?= htmlspecialchars($row['tadarus']) ?>"
+                        onclick="openEditModal(this)">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <a href="hapus.php?tanggal=<?= urlencode($row['tanggal']) ?>" 
+                        class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 flex items-center justify-center"
+                        onclick="return confirm('Apakah Anda yakin ingin menghapus data pada tanggal <?= htmlspecialchars($row['tanggal']) ?>?')">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </a>
+                </div>
+            </td>
         </tr>
-        <?php
-        $conn = new mysqli("localhost", "root", "", "jurnal_ibadah");
-        $result = $conn->query("SELECT * FROM ibadah ORDER BY tanggal DESC");
-        while ($row = $result->fetch_assoc()) { ?>
-            <tr class="text-center">
-                <td class="border p-2"><?= $row['tanggal'] ?></td>
-                <td class="border p-2"><?= $row['sholat'] ?>x</td>
-                <td class="border p-2"><?= $row['puasa'] ? "✅" : "❌" ?></td>
-                <td class="border p-2">Rp<?= number_format($row['sedekah']) ?></td>
-                <td class="border p-2"><?= $row['tadarus'] ?> halaman</td>
-                <td class="border p-2">
-                    <div class="flex justify-center gap-2">
-                        <button class="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600 flex items-center justify-center"
-                            data-old-tanggal="<?= $row['tanggal'] ?>"
-                            data-tanggal="<?= $row['tanggal'] ?>"
-                            data-sholat="<?= $row['sholat'] ?>"
-                            data-puasa="<?= $row['puasa'] ?>"
-                            data-sedekah="<?= $row['sedekah'] ?>"
-                            data-tadarus="<?= $row['tadarus'] ?>"
-                            onclick="openEditModal(this)">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                        </button>
-                        <a href="hapus.php?tanggal=<?= $row['tanggal'] ?>" 
-                            class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 flex items-center justify-center"
-                            onclick="return confirm('Apakah Anda yakin ingin menghapus data pada tanggal <?= $row['tanggal'] ?>?')">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </a>
-                    </div>
-                </td>
-            </tr>
-        <?php } ?>
-    </table>
+    <?php } ?>
+</table>
+
 </div>
 
     <!-- Modal Edit -->

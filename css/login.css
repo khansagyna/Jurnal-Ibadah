@@ -1,0 +1,18 @@
+body{
+    background:  linear-gradient(rgba(103, 153, 108, 0.767), rgba(72, 148, 98, 0.3)), url(bg-login.jpg);
+    height: 50vh;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+.form{
+    width: 100%;
+}
+.login{
+    padding-right: 150px;
+    padding-left: 150px;
+    
+}
+.submit{
+    background-color: rgba(97, 155, 103, 0.767);
+}

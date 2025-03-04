@@ -1,8 +1,12 @@
+body{
+    background-color: #B1C29E !important;
+}
 .utama{
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
+    background-color: #B1C29E;
 }
 .slmt{
     font-size: 30px;
